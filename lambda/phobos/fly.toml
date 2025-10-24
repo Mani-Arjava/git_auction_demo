@@ -21,6 +21,7 @@ primary_region = 'bom'
 
 [checks]
   [checks.health]
+    type = "http"
     grace_period = "10s"
     interval = "30s"
     method = "GET"
