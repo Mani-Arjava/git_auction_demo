@@ -1,0 +1,57 @@
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy --remote-only --config lambda/phobos/fly.toml
+        working-directory: lambda/phobos
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Set Fly.io secrets (environment variables)
+        run: |
+          flyctl secrets set \
+            AWS_REGION="${{ secrets.AWS_REGION }}" \
+            LOG_LEVEL="${{ secrets.LOG_LEVEL }}" \
+            PYTHONPATH="/app" \
+            API_TITLE="Phobos Backend API" \
+            API_VERSION="1.0.0" \
+            CORS_ORIGINS="${{ secrets.CORS_ORIGINS }}" \
+            SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}" \
+            SUPABASE_HOST="${{ secrets.SUPABASE_HOST }}" \
+            SUPABASE_USER="${{ secrets.SUPABASE_USER }}" \
+            SUPABASE_PASSWORD="${{ secrets.SUPABASE_PASSWORD }}" \
+            SUPABASE_PORT="${{ secrets.SUPABASE_PORT }}" \
+            SUPABASE_DATABASE="${{ secrets.SUPABASE_DATABASE }}" \
+            SUPABASE_USE_POOLER="${{ secrets.SUPABASE_USE_POOLER }}" \
+            AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}" \
+            AWS_S3_BASE_URL="${{ secrets.AWS_S3_BASE_URL }}" \
+            BRANCH_BASE_URL="${{ secrets.BRANCH_BASE_URL }}" \
+            --app gbauction
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        continue-on-error: true
+
+      - name: Deployment status
+        run: |
+          echo " Deployment complete!"
+          echo "=� App URL: https://gbauction.fly.dev"
+          echo "=� View logs: flyctl logs --app gbauction"
