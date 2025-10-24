@@ -25,17 +25,40 @@ if ! command -v gh &> /dev/null; then
     exit 1
 fi
 
-# Check if authenticated
-if ! gh auth status &> /dev/null; then
+# Check if authenticated (more robust check)
+echo "🔑 Checking GitHub CLI authentication..."
+if ! gh auth status 2>&1 | grep -q "Logged in"; then
+    echo ""
     echo "❌ Error: Not authenticated with GitHub CLI"
+    echo ""
+    echo "Current status:"
+    gh auth status 2>&1 || true
     echo ""
     echo "Please login first:"
     echo "   gh auth login"
     echo ""
+    echo "Then run this script again."
     exit 1
 fi
 
-echo "✅ GitHub CLI authenticated"
+# Show who is logged in
+GITHUB_USER=$(gh api user --jq .login 2>/dev/null || echo "unknown")
+echo "✅ Authenticated as: $GITHUB_USER"
+echo ""
+
+# Verify we can access the repository
+echo "🔍 Verifying repository access..."
+if ! gh repo view Mani-Arjava/git_auction_demo &> /dev/null; then
+    echo "❌ Error: Cannot access repository 'Mani-Arjava/git_auction_demo'"
+    echo ""
+    echo "Please check:"
+    echo "  - You're logged in to the correct GitHub account"
+    echo "  - You have access to this repository"
+    echo "  - Repository name is correct"
+    echo ""
+    exit 1
+fi
+echo "✅ Repository access confirmed"
 echo ""
 
 # Load .env file
@@ -126,11 +149,16 @@ for key in "${!SECRETS[@]}"; do
 
     echo -n "   Setting $key... "
 
-    if echo "$value" | gh secret set "$key" 2>/dev/null; then
+    # Capture error output
+    ERROR_OUTPUT=$(echo "$value" | gh secret set "$key" --repo Mani-Arjava/git_auction_demo 2>&1)
+    EXIT_CODE=$?
+
+    if [ $EXIT_CODE -eq 0 ]; then
         echo "✅"
         ((SUCCESS_COUNT++))
     else
         echo "❌"
+        echo "      Error: $ERROR_OUTPUT"
         ((FAIL_COUNT++))
     fi
 done
