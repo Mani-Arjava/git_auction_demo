@@ -58,7 +58,7 @@ jobs:
           echo ".env file created from GitHub secrets"
 
       - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only --config lambda/phobos/fly.toml
+        run: flyctl deploy --remote-only --config fly.toml
         working-directory: lambda/phobos
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
