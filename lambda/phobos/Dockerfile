@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy application code
+# Copy application code from lambda/phobos
 COPY . /app
 
 # Install Python dependencies
