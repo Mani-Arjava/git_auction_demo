@@ -21,11 +21,32 @@ if ! command -v flyctl &> /dev/null; then
     exit 1
 fi
 
-# Load .env file using source (more reliable than export $(grep...))
+# Load .env file using proper parsing (handles spaces in values)
 echo "📖 Reading environment variables from .env..."
-set -a  # automatically export all variables
-source .env
-set +a  # stop auto-exporting
+
+# Parse .env file line by line
+while IFS= read -r line || [ -n "$line" ]; do
+    # Skip empty lines and comments
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+
+    # Remove inline comments (but preserve # in values)
+    line="${line%%#*}"
+
+    # Extract key and value
+    if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)[[:space:]]*$ ]]; then
+        key="${BASH_REMATCH[1]}"
+        value="${BASH_REMATCH[2]}"
+
+        # Remove surrounding quotes if present
+        value="${value%\"}"
+        value="${value#\"}"
+        value="${value%\'}"
+        value="${value#\'}"
+
+        # Export the variable
+        export "$key=$value"
+    fi
+done < .env
 
 echo ""
 echo "✅ Environment variables loaded"
