@@ -21,11 +21,15 @@ if ! command -v flyctl &> /dev/null; then
     exit 1
 fi
 
-# Load .env and extract values
+# Load .env file using source (more reliable than export $(grep...))
 echo "📖 Reading environment variables from .env..."
+set -a  # automatically export all variables
+source .env
+set +a  # stop auto-exporting
 
-# Extract values from .env file
-export $(grep -v '^#' .env | grep -v '^$' | xargs)
+echo ""
+echo "✅ Environment variables loaded"
+echo ""
 
 # Check if required variables are set
 REQUIRED_VARS=(
@@ -53,21 +57,49 @@ for var in "${REQUIRED_VARS[@]}"; do
 done
 
 if [ ${#MISSING_VARS[@]} -gt 0 ]; then
-    echo "⚠️  Warning: The following variables are missing from .env:"
+    echo "❌ Error: The following required variables are missing or empty in .env:"
     for var in "${MISSING_VARS[@]}"; do
         echo "   - $var"
     done
     echo ""
-    read -p "Continue anyway? (y/n) " -n 1 -r
-    echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    echo "Please check your .env file and ensure all required variables are set."
+    exit 1
+fi
+
+# Show what will be set (masked for security)
+echo "📋 Variables to be set in Fly.io:"
+echo "   - AWS_REGION: $AWS_REGION"
+echo "   - LOG_LEVEL: $LOG_LEVEL"
+echo "   - PYTHONPATH: /app"
+echo "   - API_TITLE: Phobos Backend API"
+echo "   - API_VERSION: 1.0.0"
+echo "   - CORS_ORIGINS: ${CORS_ORIGINS:-*}"
+echo "   - SUPABASE_URL: ${SUPABASE_URL:0:30}..."
+echo "   - SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:0:20}..."
+echo "   - SUPABASE_HOST: $SUPABASE_HOST"
+echo "   - SUPABASE_USER: $SUPABASE_USER"
+echo "   - SUPABASE_PASSWORD: ****"
+echo "   - SUPABASE_PORT: $SUPABASE_PORT"
+echo "   - SUPABASE_DATABASE: $SUPABASE_DATABASE"
+echo "   - SUPABASE_USE_POOLER: $SUPABASE_USE_POOLER"
+echo "   - AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:0:8}..."
+echo "   - AWS_SECRET_ACCESS_KEY: ****"
+echo "   - AWS_S3_BUCKET: $AWS_S3_BUCKET"
+echo "   - AWS_S3_BASE_URL: $AWS_S3_BASE_URL"
+echo "   - BRANCH_BASE_URL: ${BRANCH_BASE_URL:-<not set>}"
+echo ""
+
+read -p "Continue to set these secrets in Fly.io? (y/n) " -n 1 -r
+echo ""
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Cancelled."
+    exit 0
 fi
 
 # Set Fly.io secrets
 echo ""
 echo "🔐 Setting secrets in Fly.io app 'gbauction'..."
+echo "   This will trigger a deployment and may take a minute..."
 echo ""
 
 flyctl secrets set \
@@ -92,17 +124,29 @@ flyctl secrets set \
     BRANCH_BASE_URL="${BRANCH_BASE_URL:-}" \
     --app gbauction
 
-echo ""
-echo "✅ Secrets set successfully!"
-echo ""
-echo "📝 Note: Setting secrets will trigger a deployment."
-echo "   Your app will restart with the new environment variables."
-echo ""
-echo "🔍 To verify secrets were set:"
-echo "   fly secrets list --app gbauction"
-echo ""
-echo "📊 To view deployment status:"
-echo "   fly status --app gbauction"
-echo ""
-echo "📋 To view logs:"
-echo "   fly logs --app gbauction"
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ]; then
+    echo ""
+    echo "✅ Secrets set successfully!"
+    echo ""
+    echo "📝 The app is now deploying with new secrets..."
+    echo "   This may take 1-2 minutes."
+    echo ""
+    echo "🔍 To verify secrets were set:"
+    echo "   fly secrets list --app gbauction"
+    echo ""
+    echo "📊 To view deployment status:"
+    echo "   fly status --app gbauction"
+    echo ""
+    echo "📋 To view logs:"
+    echo "   fly logs --app gbauction"
+    echo ""
+    echo "🌐 Test your API:"
+    echo "   curl https://gbauction.fly.dev/docs"
+else
+    echo ""
+    echo "❌ Failed to set secrets (exit code: $EXIT_CODE)"
+    echo "   Check the error message above for details."
+    exit $EXIT_CODE
+fi
